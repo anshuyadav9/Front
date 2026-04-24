@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'updatedAt']) &&
+             data.keys().size() <= 6 &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 200 &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time;
+    }
+
+    function isValidDevice(data) {
+      return data.keys().hasAll(['deviceId', 'status', 'lastSeen']) &&
+             data.keys().size() <= 10 &&
+             data.deviceId is string && data.deviceId.size() <= 128 &&
+             data.status in ['online', 'offline'] &&
+             data.lastSeen == request.time;
+    }
+
+    function isValidConfig(data) {
+      return data.keys().hasAll(['id', 'name', 'type', 'data', 'isActive', 'createdAt', 'updatedAt']) &&
+             data.keys().size() <= 10 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.type in ['floating', 'keyboard', 'accessibility', 'overlay'] &&
+             data.data is map &&
+             data.isActive is bool &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time;
+    }
+
+    // Path Rules
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && isEmailVerified();
+      allow update: if isOwner(userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']) &&
+                       incoming().updatedAt == request.time;
+
+      match /devices/{deviceId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(deviceId);
+        allow create: if isOwner(userId) && isValidId(deviceId) && isValidDevice(incoming()) && isEmailVerified();
+        allow update: if isOwner(userId) && isValidId(deviceId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastSeen', 'model', 'osVersion']) &&
+                         incoming().lastSeen == request.time;
+        allow delete: if isOwner(userId) && isValidId(deviceId);
+      }
+
+      match /configs/{configId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(configId);
+        allow create: if isOwner(userId) && isValidId(configId) && isValidConfig(incoming()) && isEmailVerified();
+        allow update: if isOwner(userId) && isValidId(configId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'type', 'data', 'isActive', 'updatedAt']) &&
+                         incoming().updatedAt == request.time;
+        allow delete: if isOwner(userId) && isValidId(configId);
+      }
+    }
+  }
+}

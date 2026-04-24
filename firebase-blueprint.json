@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information and persistent settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Device": {
+      "title": "Device",
+      "description": "Linked mobile device information",
+      "type": "object",
+      "properties": {
+        "deviceId": { "type": "string" },
+        "model": { "type": "string" },
+        "osVersion": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "pairingCode": { "type": "string" }
+      },
+      "required": ["deviceId", "status"]
+    },
+    "WindowConfig": {
+      "title": "Window Configuration",
+      "description": "JSON object defining floating windows, keyboard overlays, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["floating", "keyboard", "accessibility", "overlay"] },
+        "data": { "type": "object" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "data"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Primary user profile document"
+    },
+    "/users/{userId}/devices/{deviceId}": {
+      "schema": "Device",
+      "description": "Devices linked to the user"
+    },
+    "/users/{userId}/configs/{configId}": {
+      "schema": "WindowConfig",
+      "description": "Stored configurations for the user's devices"
+    }
+  }
+}
